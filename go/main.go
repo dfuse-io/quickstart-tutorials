@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	pb "github.com/dfuse-io/quickstart-tutorials/pb"
@@ -125,7 +126,12 @@ func main() {
 		panic(err)
 	}
 
-	queryETH(token)
-	queryEOS(token)
+	proto := strings.ToLower(os.Getenv("DFUSE_PROTO"))
+	if proto == "eth" || proto == "" {
+		queryETH(token)
+	}
+	if proto == "eos" || proto == "" {
+		queryEOS(token)
+	}
 
 }
