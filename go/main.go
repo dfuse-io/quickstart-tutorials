@@ -3,13 +3,14 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"time"
 
 	pb "github.com/dfuse-io/quickstart-tutorials/pb"
+	"github.com/tidwall/gjson"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -20,46 +21,52 @@ func getToken(dfuseAPIKey string) (token string, expiration time.Time, err error
 	reqBody := bytes.NewBuffer([]byte(fmt.Sprintf(`{"api_key":"%s"}`, dfuseAPIKey)))
 	resp, err := http.Post("https://auth.dfuse.io/v1/auth/issue", "application/json", reqBody)
 	if err != nil || resp.StatusCode != 200 {
-		return token, expiration, fmt.Errorf("status code: %d, error: %s", resp.StatusCode, err)
-	}
-
-	type authResp struct {
-		Token     string `json:"token"`
-		ExpiresAt int64  `json:"expires_at"`
-	}
-	var result authResp
-	err = json.NewDecoder(resp.Body).Decode(&result)
-	if err != nil {
+		err = fmt.Errorf("status code: %d, error: %s", resp.StatusCode, err)
 		return
 	}
-	return result.Token, time.Unix(result.ExpiresAt, 0), nil
+	if body, err := ioutil.ReadAll(resp.Body); err == nil {
+		token = gjson.GetBytes(body, "token").String()
+		expiration = time.Unix(gjson.GetBytes(body, "expires_at").Int(), 0)
+	}
+	return
 }
 
 func queryETH(token string) {
 	// Authorization: bearer {token}
-	credential := oauth.NewOauthAccess(&oauth2.Token{AccessToken: token, TokenType: "Bearer"})
+	credential := oauth.NewOauthAccess(
+		&oauth2.Token{AccessToken: token, TokenType: "Bearer"},
+	)
 
 	// Enable SSL
 	transportCreds := credentials.NewClientTLSFromCert(nil, "")
 
 	// Connect to ETH endpoint
 	endpoint := "mainnet.eth.dfuse.io:443"
-	conn, err := grpc.Dial(endpoint, grpc.WithPerRPCCredentials(credential), grpc.WithTransportCredentials(transportCreds))
+	conn, err := grpc.Dial(
+		endpoint,
+		grpc.WithPerRPCCredentials(credential),
+		grpc.WithTransportCredentials(transportCreds),
+	)
 	if err != nil {
 		panic(err)
 	}
+
 	client := pb.NewGraphQLClient(conn)
-	executor, err := client.Execute(context.Background(), &pb.Request{Query: `subscription
- {
-  searchTransactions(query: "method:\"transfer(address,uint256)\"", sort:DESC, limit:1) {
-    node{
-      hash
-    }
-    block{
-      number
-    }
-  }
-}`})
+	executor, err := client.Execute(
+		context.Background(),
+		&pb.Request{Query: `subscription
+      {
+       searchTransactions(query: "method:\"transfer(address,uint256)\"",
+	     sort:DESC, limit:1) {
+         node{
+           hash
+         }
+         block{
+           number
+         }
+       }
+     }`},
+	)
 	if err != nil {
 		panic(err)
 	}
