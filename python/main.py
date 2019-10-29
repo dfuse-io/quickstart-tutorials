@@ -47,7 +47,7 @@ def query_eth(client):
        }
     }
     """
-    dfuse_graphql = client('ropsten.eth.dfuse.io:443')
+    dfuse_graphql = client('mainnet.eth.dfuse.io:443')
     stream = dfuse_graphql.Execute(Request(query=query))
 
     print("== ETH results ==")
