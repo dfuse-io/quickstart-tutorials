@@ -20,7 +20,7 @@ def token_for_api_key(apiKey):
     response = connection.getresponse()
 
     if response.status != 200:
-        raise Exception(" Status: {response.status} reason: {response.reason}")
+        raise Exception(" Status: %s reason: %s" % (response.status, response.reason))
 
     token = json.loads(response.read().decode())['token']
     connection.close()
@@ -34,69 +34,63 @@ def client(endpoint):
                                                                                  credentials))
     return graphql_pb2_grpc.GraphQLStub(channel)
 
-def query_eth(client):
+def stream_ethereum(client):
     query = """
     subscription {
-      searchTransactions(query: "method:\\"transfer(address,uint256)\\"", limit: 5, sort: DESC) {
-         node{
-           hash
-         }
-         block{
-           number
-         }
+      searchTransactions(query: "-value:0 type:call", lowBlockNum: -1) {
+         undo cursor
+         node { hash matchingCalls { caller address value(encoding:ETHER) } }
        }
     }
     """
     dfuse_graphql = client('mainnet.eth.dfuse.io:443')
     stream = dfuse_graphql.Execute(Request(query=query))
 
-    print("== ETH results ==")
+    print("ETH Results")
     for rawResult in stream:
         if rawResult.errors:
           print("An error occurred")
           print(rawResult.errors)
         else:
           result = json.loads(rawResult.data)
-          print(result['searchTransactions'])
+          for call in result['searchTransactions']['node']['matchingCalls']:
+            undo = result['searchTransactions']['undo']
+            print("Transfer %s -> %s [%s Ether]%s" % (call['caller'], call['address'], call['value'], " REVERTED" if undo else ""))
 
-def query_eos(client):
-    query = '''
-    subscription {
-      searchTransactionsForward(query: "action:onblock", limit: 5) {
-        trace {
-          id
-          matchingActions{
-            account
-            receiver
-            name
-            json
-          }
+def stream_eosio(client):
+    operation = '''
+      subscription {
+        searchTransactionsForward(query:"receiver:eosio.token action:transfer") {
+          undo cursor
+          trace { id matchingActions { json } }
         }
       }
-    }
     '''
-    dfuse_graphql = client('mainnet.eos.dfuse.io:443')
-    stream = dfuse_graphql.Execute(Request(query=query))
 
-    print("== EOS results ==")
+    dfuse_graphql = client('mainnet.eos.dfuse.io:443')
+    stream = dfuse_graphql.Execute(Request(query=operation))
+
+    print("EOS Transfers")
     for rawResult in stream:
         if rawResult.errors:
           print("An error occurred")
           print(rawResult.errors)
         else:
           result = json.loads(rawResult.data)
-          print(result['searchTransactionsForward']['trace']['matchingActions'])
-
+          for action in result['searchTransactionsForward']['trace']['matchingActions']:
+            undo = result['searchTransactionsForward']['undo']
+            data = action['json']
+            print("Transfer %s -> %s [%s]%s" % (data['from'], data['to'], data['quantity'], " REVERTED" if undo else ""))
 
 proto = ""
 if len(sys.argv) > 2:
     proto = sys.argv[2].lower()
 
-if proto == "eth" or proto == "":
-  query_eth(client)
+if proto == "ethereum" or proto == "":
+  stream_ethereum(client)
 
-if proto == "eos" or proto == "":
-  query_eos(client)
+if proto == "eosio" or proto == "":
+  stream_eosio(client)
 
 
 
