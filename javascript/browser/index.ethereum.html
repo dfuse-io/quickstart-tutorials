@@ -28,7 +28,7 @@ async function main() {
       const { undo, cursor, node: { hash, value, matchingCalls }} = message.data.searchTransactions
       matchingCalls.forEach(({ caller, address, value }) => {
         const paragraphNode = document.createElement("li")
-        // Ensure you correctly with the `undo` field
+        // Ensure you correctly deal with the `undo` field
         paragraphNode.innerText = `Transfer ${caller} -> ${address} [${value} Ether]${undo ? " REVERTED" : ""}`
 
         document.body.prepend(paragraphNode)

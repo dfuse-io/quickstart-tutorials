@@ -22,7 +22,7 @@ async function main() {
       const { undo, cursor, trace: { id, matchingActions }} = message.data.searchTransactionsForward
       matchingActions.forEach(({ json: { from, to, quantity } }) => {
         const paragraphNode = document.createElement("li")
-        // Ensure you correctly with the `undo` field
+        // Ensure you correctly deal with the `undo` field
         paragraphNode.innerText = `Transfer ${from} -> ${to} [${quantity}]${undo ? " REVERTED" : ""}`
 
         document.body.prepend(paragraphNode)

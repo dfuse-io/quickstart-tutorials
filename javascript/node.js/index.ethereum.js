@@ -24,7 +24,7 @@ async function main() {
     if (message.type === "data") {
       const { undo, cursor, node: { hash, value, matchingCalls }} = message.data.searchTransactions
       matchingCalls.forEach(({ caller, address, value }) => {
-        // Ensure you correctly with the `undo` field
+        // Ensure you correctly deal with the `undo` field
         console.log(`Transfer ${caller} -> ${address} [${value} Ether]${undo ? " REVERTED" : ""}`)
       })
 

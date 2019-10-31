@@ -22,6 +22,7 @@ async function main() {
     if (message.type === "data") {
       const { undo, cursor, trace: { id, matchingActions }} = message.data.searchTransactionsForward
       matchingActions.forEach(({ json: { from, to, quantity } }) => {
+        // Ensure you correctly deal with the `undo` field
         console.log(`Transfer ${from} -> ${to} [${quantity}]${undo ? " REVERTED" : ""}`)
       })
 
